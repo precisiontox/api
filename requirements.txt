@@ -1,0 +1,7 @@
+psycopg2~=2.9.3
+Flask~=2.1.1
+python-dotenv
+graphene>=3.0
+sqlparse>=0.3.0
+Pygments>=2.0.1
+flask-cors>=3.0.2

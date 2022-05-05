@@ -1,0 +1,8 @@
+/venv/*
+.env
+tests/example.graphql
+schema.graphql
+.graphqlconfig
+.idea
+
+__pycache__
