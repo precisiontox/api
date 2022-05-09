@@ -6,3 +6,6 @@ schema.graphql
 .idea
 
 __pycache__
+__pycache__/*
+psql2graphql/__pycache__
+./psql2graphql/__pycache__/*

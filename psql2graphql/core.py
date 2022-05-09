@@ -150,12 +150,15 @@ class BaseHandler:
         @return: the results of the query
         """
         message = sqlparse.format(query, reindent=True, keyword_case='upper')
-        logging.info(f'Executing query: \n{message}\n---')
-        self.get_database_connection()
-        self.cur.execute(query)
-        results = self.cur.fetchall()
-        self.close_connection()
-        return results
+        try:
+            logging.info(f'Executing query: \n{message}\n---')
+            self.get_database_connection()
+            self.cur.execute(query)
+            results = self.cur.fetchall()
+            self.close_connection()
+            return results
+        except Exception as e:
+            raise e
 
     def build_base_query(self, alias: str) -> str:
         """
@@ -234,6 +237,40 @@ class Introspector(BaseHandler):
         return '.' not in field and '-' not in field and ' ' not in field
 
 
+class Counter(BaseHandler):
+
+    def __init__(self, tables):
+        super(Counter, self).__init__()
+        self.default_limit = 0
+        self.tables = tables
+        self.graphql_fields = self.build_graph_fields()
+
+    def build_base_query(self, alias=None) -> str:
+        with_statements = []
+        selects = []
+        query = ''
+        if len(self.tables) > 0:
+            query = "SELECT row_to_json(r) as data FROM ( WITH "
+            for table in self.tables:
+                with_statements.append(f"{table} AS (SELECT COUNT(*) as {table} FROM {table})")
+                selects.append(f'{table}.*')
+            query += ', '.join(with_statements) + f' SELECT {", ".join(selects)} FROM {", ".join(self.tables)} ) r;'
+        return query
+
+    def build_graph_fields(self) -> object:
+        classname = 'CountQueryFields'
+        options = {}
+        for table_name in self.tables:
+            options[table_name] = Int(description=f'Count for table {table_name}')
+        return type(classname, (ObjectType,), options)
+
+    def build_graph_resolver(self):
+        return {
+            "counts": graphList(self.graphql_fields, description='Counts for each table'),
+            "resolve_counts": make_resolver_without_filters('counts', self)
+        }
+
+
 class ClassFactory:
 
     def __init__(self, table, connector):
@@ -271,20 +308,34 @@ class ClassFactory:
         return type(classname, (ObjectType,), options)
 
 
-def make_resolver(record_name, handler):
+def make_resolver(record_name, graphql_object):
     def resolver(parent, info, filters):
         fields = [field.name.value for field in info.field_nodes[0].selection_set.selections]
-        return handler.graphql_object.get(fields, filters)
+        return graphql_object.get(fields, filters)
     resolver.__name__ = 'resolve_%s' % record_name
     return resolver
 
 
-def generate_queries(handlers):
+def make_resolver_without_filters(record_name, graphql_object):
+    def resolver(parent, info):
+        fields = [field.name.value for field in info.field_nodes[0].selection_set.selections]
+        return graphql_object.get(fields)
+    resolver.__name__ = 'resolve_%s' % record_name
+    return resolver
+
+
+def generate_queries(handlers, tables, config):
     options = {}
+    counts = Counter(tables)
+    counts.set_connection(config)
     for handler in handlers:
         options[handler.alias.lower()] = graphList(handler.graphql_object.graph_fields,
                                                    filters=Argument(handler.graphql_object.graph_parameters),
                                                    description='List of %s' % handler.alias.lower())
-        options['resolve_%s' % handler.alias.lower()] = make_resolver(handler.alias.lower(), handler)
+        options['resolve_%s' % handler.alias.lower()] = make_resolver(handler.alias.lower(), handler.graphql_object)
+
+    graph_counts = counts.build_graph_resolver()
+    for field in graph_counts:
+        options[field] = graph_counts[field]
     query = type('Query', (ObjectType,), options)
     return query
