@@ -20,8 +20,9 @@ ENV PATH="/opt/conda/envs/ptox/bin:$PATH"
 
 RUN /bin/bash -c "micromamba activate ptox"
 
-CMD [ "flask", "run" ]
+WORKDIR "/home/docker/api"
 
+#CMD [ "flask", "run" ]
 
-
+CMD ["uwsgi", "app.ini"]
 
