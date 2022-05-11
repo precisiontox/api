@@ -5,7 +5,10 @@ from psql2graphql.core import generate_queries, ClassFactory, Introspector
 def generate_endpoints(config):
     introspector = get_introspector(config)
     tables = introspector.get()
-    return Schema(query=generate_queries([ClassFactory(table, config) for table in tables]),
+    query = generate_queries([ClassFactory(table, config) for table in tables],
+                             [table['name'] for table in tables],
+                             config)
+    return Schema(query=query,
                   auto_camelcase=False), tables
 
 
