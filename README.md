@@ -8,12 +8,15 @@ Create an environment using venv or conda
 ```shell
 python3 -m venv venv
 source venv/bin/activate
+sudo apt-get install libpq-dev python-dev
+sudo apt install build-essential
 pip install -r requirement.txt
 mv .env.example .env
 ```
 
 ```shell
 conda env create -f environment.yml
+mv .env.example .env
 ```
 
 Then open .env and fill in the values with your credentials and connection.
@@ -46,8 +49,8 @@ sudo apt-get install -y passenger
 passenger-config validate-install
 ``` 
 
-Run the API using `/sudo passenger start/`
+Run the API using `sudo passenger start`
 
-If you want you can stop the API using `/sudo passenger stop/`
+If you want you can stop the API using `sudo passenger stop`
 
 The app is served on port 5000.
